@@ -139,3 +139,6 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 #endif /* threads/thread.h */
+
+bool thread_inlist_compare(struct list_elem *current_elem, struct list_elem *compare_elem, void *aux);
+void thread_preemption(void);
