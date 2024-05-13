@@ -28,6 +28,8 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -70,6 +72,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+void thread_sleep (int64_t);
+void wakeup (int64_t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -92,7 +96,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-
+  list_init (&sleep_list);
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -593,4 +597,38 @@ bool thread_inlist_compare(struct list_elem *current_elem, struct list_elem *com
 void thread_preemption(void){
   if(!list_empty(&ready_list)) return;
   if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority) thread_yield();
+}
+
+void
+thread_sleep (int64_t ticks)
+{
+  struct thread *t = thread_current ();
+  enum intr_level old_level;
+
+  old_level = intr_disable ();
+  ASSERT (t != idle_thread);
+  t->wakeup_tick = ticks;
+  list_push_back (&sleep_list, &t->elem);
+  thread_block ();
+  intr_set_level (old_level);
+}
+
+void
+wakeup (int64_t ticks)
+{
+  struct list_elem *l = list_begin (&sleep_list);
+
+  while (l != list_end (&sleep_list))
+  {
+    struct thread *t = list_entry (l, struct thread, elem);
+    if (t->wakeup_tick <= ticks)
+    {
+      l = list_remove (l);
+      thread_unblock (t);
+    }
+    else
+    {
+      l = list_next (l);
+    }
+  }
 }
